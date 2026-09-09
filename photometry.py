@@ -144,6 +144,83 @@ def total_illuminance(fixtures: Iterable[Fixture], point_x: float, point_y: floa
     )
 
 
+def flux_hemispheres(ies: IesData) -> Tuple[float, float]:
+    """Split total luminous flux (lm) into (downward, upward) components,
+    splitting the same candela(theta,phi)*sin(theta) integral
+    `_integrate_candela_to_lumens` does at theta = 90 deg (theta is
+    measured from nadir in this module's convention, so 0-90 is
+    "downward hemisphere", 90-180 is "upward hemisphere").
+
+    This is what lets interreflection.py know how much flux hits the
+    floor directly vs. the ceiling directly on first incidence. A fully
+    shielded high-bay/downlight (the common case - zero candela above
+    90 deg, i.e. ULOR = 0%) should hand 100% of its output to the
+    floor's first-bounce budget, not to an area-weighted blend across
+    all three room surfaces - see interreflection.py for why that
+    distinction is the difference between matching DIALux and
+    overshooting it by ~20%.
+    """
+    v_angles = ies.vertical_angles
+    h_angles = ies.horizontal_angles
+    if len(v_angles) < 2:
+        return 0.0, 0.0
+
+    max_h = h_angles[-1] if h_angles else 0.0
+    if len(h_angles) <= 1:
+        symmetry_factor = 2 * math.pi
+    elif max_h <= 90.0 + 1e-6:
+        symmetry_factor = 4.0
+    elif max_h <= 180.0 + 1e-6:
+        symmetry_factor = 2.0
+    else:
+        symmetry_factor = 1.0
+
+    def v_integral_bounded(col: List[float], lo: float, hi: float) -> float:
+        """Trapezoidal integral of col(theta)*sin(theta) dtheta restricted
+        to [lo, hi] degrees, linearly interpolating col at lo/hi when
+        they fall inside a published interval instead of on a grid
+        point (only matters for files that don't happen to publish a
+        sample exactly at 90 deg)."""
+        total = 0.0
+        for i in range(len(v_angles) - 1):
+            a0, a1 = v_angles[i], v_angles[i + 1]
+            seg_lo, seg_hi = max(a0, lo), min(a1, hi)
+            if seg_hi <= seg_lo:
+                continue
+            c0, c1 = col[i], col[i + 1]
+            frac_lo = (seg_lo - a0) / (a1 - a0) if a1 != a0 else 0.0
+            frac_hi = (seg_hi - a0) / (a1 - a0) if a1 != a0 else 0.0
+            v_lo = c0 + (c1 - c0) * frac_lo
+            v_hi = c0 + (c1 - c0) * frac_hi
+            t_lo, t_hi = math.radians(seg_lo), math.radians(seg_hi)
+            f_lo, f_hi = v_lo * math.sin(t_lo), v_hi * math.sin(t_hi)
+            total += (f_lo + f_hi) / 2.0 * (t_hi - t_lo)
+        return total
+
+    v_max = v_angles[-1]
+
+    if len(h_angles) <= 1:
+        col = ies.candela[0]
+        down = symmetry_factor * v_integral_bounded(col, 0.0, 90.0) * ies.multiplier
+        up = symmetry_factor * v_integral_bounded(col, 90.0, v_max) * ies.multiplier
+        return down, up
+
+    down_pub = 0.0
+    up_pub = 0.0
+    for i in range(len(h_angles) - 1):
+        p0 = math.radians(h_angles[i])
+        p1 = math.radians(h_angles[i + 1])
+        dphi = p1 - p0
+        d0 = v_integral_bounded(ies.candela[i], 0.0, 90.0)
+        d1 = v_integral_bounded(ies.candela[i + 1], 0.0, 90.0)
+        down_pub += (d0 + d1) / 2.0 * dphi
+        u0 = v_integral_bounded(ies.candela[i], 90.0, v_max)
+        u1 = v_integral_bounded(ies.candela[i + 1], 90.0, v_max)
+        up_pub += (u0 + u1) / 2.0 * dphi
+
+    return symmetry_factor * down_pub * ies.multiplier, symmetry_factor * up_pub * ies.multiplier
+
+
 def total_flux(ies: IesData) -> float:
     """The total luminous flux (lm) this file's candela distribution
     represents — the reference point the 'declared lumens' rescale
