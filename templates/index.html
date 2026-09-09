@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Pins relative fetch()/asset paths to this app's own root, regardless
+       of the subfolder it's deployed under or whether the URL was loaded
+       with a trailing slash. Without this, a bookmarked no-trailing-slash
+       URL would send 'api/...' fetches to the parent site instead. -->
+  <base href="{{ url_for('index') }}">
+  <title>IES Heatmap &amp; Shape Tool — Phase 2</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="sc-page">
+
+    <header class="sc-header">
+      <!-- Full-color logo for dark backgrounds, per SC brand guidelines -->
+      <img class="logo" src="https://shortcircuit.company/assets/img/logo-dark.svg" alt="Short Circuit Company">
+      <div>
+        <h1>IES Heatmap Tool</h1>
+        <div class="sc-subtitle">Phase 2 — any room shape, multi-fixture</div>
+      </div>
+    </header>
+
+    <section class="sc-panel">
+      <h3 class="small-heading">Step 1</h3>
+      <h2>Import IES File</h2>
+      <input type="file" id="ies-file-input" accept=".ies">
+
+      <div class="sc-url-row">
+        <input type="url" id="ies-url-input" placeholder="Or paste a link to an .ies file…">
+        <button type="button" id="ies-url-fetch-btn">Fetch &amp; save</button>
+      </div>
+
+      <div class="sc-saved-row">
+        <label for="ies-saved-select">Previously saved:</label>
+        <select id="ies-saved-select">
+          <option value="">— select a saved file —</option>
+        </select>
+      </div>
+
+      <div id="ies-status" class="sc-status"></div>
+      <div id="ies-metadata"></div>
+    </section>
+
+    <section class="sc-panel">
+      <h3 class="small-heading">Step 2</h3>
+      <h2>Room Shape</h2>
+
+      <div class="sc-radio-row">
+        <label><input type="radio" name="shape-type" value="rectangle" checked> Rectangle</label>
+        <label><input type="radio" name="shape-type" value="polygon"> Polygon (with optional holes)</label>
+        <label><input type="radio" name="shape-type" value="preset"> Standard Shape</label>
+      </div>
+
+      <div id="shape-rectangle-fields" class="sc-form-grid">
+        <div class="sc-field">
+          <label for="rect-width">Width (m)</label>
+          <input type="number" id="rect-width" value="10" step="0.1" min="0.1">
+        </div>
+        <div class="sc-field">
+          <label for="rect-length">Length (m)</label>
+          <input type="number" id="rect-length" value="10" step="0.1" min="0.1">
+        </div>
+      </div>
+
+      <div id="shape-polygon-fields" style="display:none">
+        <div class="sc-radio-row">
+          <label><input type="radio" name="polygon-input-method" value="draw" checked> Draw on canvas</label>
+          <label><input type="radio" name="polygon-input-method" value="paste"> Paste JSON vertices</label>
+        </div>
+
+        <div id="shape-draw-fields">
+          <p class="sc-hint">
+            Click on the workspace canvas below to place points, then click the first
+            (green) point again — or hit <strong>Close Shape</strong> — to finish the
+            outline. Once closed: <strong>drag a white dot</strong> to move a corner,
+            <strong>drag a grey diamond</strong> (mid-edge) to bow that side into a
+            curve, <strong>double-click an edge</strong> to add a corner there, and
+            <strong>double-click (or right-click) a corner</strong> to remove it.
+            Every edge shows its length — <strong>click a length label</strong> at any
+            time to type an exact value for that side.
+          </p>
+          <div class="sc-toolbar">
+            <button class="sc-button sc-button-secondary" id="draw-start-btn">Start Drawing</button>
+            <button class="sc-button sc-button-secondary" id="draw-undo-btn">Undo Point</button>
+            <button class="sc-button sc-button-secondary" id="draw-close-btn">Close Shape</button>
+            <button class="sc-button sc-button-secondary" id="draw-hole-btn" disabled>Add Hole</button>
+            <button class="sc-button sc-button-secondary" id="draw-clear-btn">Clear Shape</button>
+            <button class="sc-button sc-button-secondary" id="draw-history-undo-btn" title="Undo (Ctrl+Z)" disabled>&#8630; Undo</button>
+            <button class="sc-button sc-button-secondary" id="draw-history-redo-btn" title="Redo (Ctrl+Y)" disabled>&#8631; Redo</button>
+          </div>
+          <p class="sc-hint">
+            Shortcuts: <strong>Ctrl+Z</strong> / <strong>Ctrl+Y</strong> undo/redo any
+            change &middot; select a corner then <strong>Delete</strong> removes it or the
+            <strong>arrow keys</strong> nudge it (hold <strong>Shift</strong> for a bigger
+            step) &middot; <strong>Escape</strong> cancels the outline or hole you're
+            currently drawing.
+          </p>
+          <div class="sc-toolbar">
+            <label class="sc-checkbox-label">
+              <input type="checkbox" id="draw-snap-checkbox"> Snap to grid
+            </label>
+            <div class="sc-field sc-field-inline">
+              <input type="number" id="draw-snap-size" value="0.25" step="0.05" min="0.05" title="Grid size (m)">
+            </div>
+            <label class="sc-checkbox-label">
+              <input type="checkbox" id="draw-angle-snap-checkbox"> Snap angle
+            </label>
+            <div class="sc-field sc-field-inline">
+              <select id="draw-angle-snap-deg" title="Angle step">
+                <option value="15">15&deg;</option>
+                <option value="45">45&deg;</option>
+                <option value="90">90&deg;</option>
+              </select>
+            </div>
+          </div>
+          <div class="sc-toolbar">
+            <div class="sc-field sc-field-inline">
+              <label for="draw-next-length">Next side length (m)</label>
+              <input type="number" id="draw-next-length" step="0.01" min="0.01" placeholder="e.g. 3.5">
+            </div>
+            <button class="sc-button sc-button-secondary" id="draw-set-length-btn">Add Side at This Length</button>
+          </div>
+          <div id="draw-status" class="sc-status"></div>
+        </div>
+
+        <div id="shape-paste-fields" class="sc-form-grid" style="display:none">
+          <div class="sc-field sc-field-wide">
+            <label for="polygon-exterior">Exterior vertices — JSON, e.g. <code>[[0,0],[10,0],[10,6],[6,6],[6,10],[0,10]]</code></label>
+            <textarea id="polygon-exterior" rows="3">[[0,0],[10,0],[10,6],[6,6],[6,10],[0,10]]</textarea>
+          </div>
+          <div class="sc-field sc-field-wide">
+            <label for="polygon-holes">Holes (obstacles) — JSON list of vertex lists, e.g. <code>[[[4,4],[6,4],[6,6],[4,6]]]</code>. Leave as <code>[]</code> for none.</label>
+            <textarea id="polygon-holes" rows="2">[]</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div id="shape-preset-fields" style="display:none">
+        <div class="sc-field">
+          <label for="preset-shape-select">Shape</label>
+          <select id="preset-shape-select">
+            <option value="triangle">Triangle (3 sides)</option>
+            <option value="square">Square (4 sides)</option>
+            <option value="pentagon">Pentagon (5 sides)</option>
+            <option value="hexagon" selected>Hexagon (6 sides)</option>
+            <option value="heptagon">Heptagon (7 sides)</option>
+            <option value="octagon">Octagon (8 sides)</option>
+            <option value="custom_polygon">Custom regular polygon (N sides)</option>
+            <option value="trapezoid">Trapezoid</option>
+            <option value="circle">Circle</option>
+            <option value="oval">Oval (ellipse)</option>
+          </select>
+        </div>
+
+        <div id="preset-polygon-fields" class="sc-form-grid">
+          <div class="sc-field" id="preset-sides-field">
+            <label for="preset-sides">Number of sides</label>
+            <input type="number" id="preset-sides" value="6" step="1" min="3">
+          </div>
+          <div class="sc-field">
+            <label for="preset-dim-mode">Dimension by</label>
+            <select id="preset-dim-mode">
+              <option value="radius">Radius, center-to-corner (m)</option>
+              <option value="side_length">Side length (m)</option>
+            </select>
+          </div>
+          <div class="sc-field">
+            <label for="preset-dim-value">Value (m)</label>
+            <input type="number" id="preset-dim-value" value="3" step="0.1" min="0.01">
+          </div>
+          <div class="sc-field">
+            <label for="preset-rotation">Rotation (&deg;)</label>
+            <input type="number" id="preset-rotation" value="0" step="1">
+          </div>
+        </div>
+
+        <div id="preset-trapezoid-fields" class="sc-form-grid" style="display:none">
+          <div class="sc-field">
+            <label for="preset-trap-bottom">Bottom width (m)</label>
+            <input type="number" id="preset-trap-bottom" value="10" step="0.1" min="0.1">
+          </div>
+          <div class="sc-field">
+            <label for="preset-trap-top">Top width (m)</label>
+            <input type="number" id="preset-trap-top" value="6" step="0.1" min="0">
+          </div>
+          <div class="sc-field">
+            <label for="preset-trap-height">Height (m)</label>
+            <input type="number" id="preset-trap-height" value="5" step="0.1" min="0.1">
+          </div>
+        </div>
+
+        <div id="preset-circle-fields" class="sc-form-grid" style="display:none">
+          <div class="sc-field">
+            <label for="preset-circle-radius">Radius (m)</label>
+            <input type="number" id="preset-circle-radius" value="5" step="0.1" min="0.1">
+          </div>
+          <div class="sc-field">
+            <label for="preset-circle-segments">Smoothness (segments)</label>
+            <input type="number" id="preset-circle-segments" value="64" step="4" min="8" max="256">
+          </div>
+        </div>
+
+        <div id="preset-oval-fields" class="sc-form-grid" style="display:none">
+          <div class="sc-field">
+            <label for="preset-oval-rx">Radius X (m)</label>
+            <input type="number" id="preset-oval-rx" value="6" step="0.1" min="0.1">
+          </div>
+          <div class="sc-field">
+            <label for="preset-oval-ry">Radius Y (m)</label>
+            <input type="number" id="preset-oval-ry" value="3" step="0.1" min="0.1">
+          </div>
+          <div class="sc-field">
+            <label for="preset-oval-rotation">Rotation (&deg;)</label>
+            <input type="number" id="preset-oval-rotation" value="0" step="1">
+          </div>
+          <div class="sc-field">
+            <label for="preset-oval-segments">Smoothness (segments)</label>
+            <input type="number" id="preset-oval-segments" value="64" step="4" min="8" max="256">
+          </div>
+        </div>
+
+        <p class="sc-hint">
+          Pick a shape, then set its dimensions — a named polygon (triangle
+          through octagon) can be sized either by the distance from center
+          to corner or by the length of one side; pick "Custom regular
+          polygon" for any other number of sides. Circle/oval smoothness
+          controls how many straight edges approximate the curve (higher =
+          rounder, but more points for the calculation grid to consider).
+        </p>
+      </div>
+
+      <button class="sc-button" id="validate-shape-btn">Validate Shape</button>
+      <div id="shape-status" class="sc-status"></div>
+      <div id="shape-info"></div>
+    </section>
+
+    <section class="sc-panel">
+      <h3 class="small-heading">Workspace</h3>
+      <h2>Shape &amp; Fixtures</h2>
+      <div class="sc-toolbar">
+        <button class="sc-button sc-button-secondary" id="zoom-in-btn" type="button">Zoom In (+)</button>
+        <button class="sc-button sc-button-secondary" id="zoom-out-btn" type="button">Zoom Out (−)</button>
+        <button class="sc-button sc-button-secondary" id="zoom-fit-btn" type="button">Fit / Reset</button>
+        <span class="sc-hint" style="margin:0;">Scroll to zoom (cursor-anchored) · middle-click drag to pan</span>
+      </div>
+      <div id="workspace-canvas-wrap">
+        <canvas id="heatmap-canvas" width="700" height="700"></canvas>
+        <input type="number" id="edge-length-edit-input" class="sc-edge-length-input" step="0.01" min="0.01" style="display:none">
+        <div id="lux-tooltip" class="sc-lux-tooltip" style="display:none"></div>
+      </div>
+      <div class="sc-form-grid">
+        <div class="sc-field sc-field-inline">
+          <label class="sc-checkbox-label">
+            <input type="checkbox" id="ruler-grid-checkbox"> Show ruler grid (on top)
+          </label>
+        </div>
+        <div class="sc-field">
+          <label for="ruler-grid-spacing">Ruler spacing (m)</label>
+          <input type="number" id="ruler-grid-spacing" value="1" step="0.1" min="0.1">
+        </div>
+      </div>
+    </section>
+
+    <section class="sc-panel">
+      <h3 class="small-heading">Step 3</h3>
+      <h2>Fixtures</h2>
+
+      <div class="sc-form-grid">
+        <div class="sc-field">
+          <label for="mounting-height">Mounting height (m)</label>
+          <input type="number" id="mounting-height" value="3" step="0.1" min="0.1">
+        </div>
+        <div class="sc-field">
+          <label for="work-plane-height">Work plane height (m)</label>
+          <input type="number" id="work-plane-height" value="0" step="0.1" min="0">
+        </div>
+      </div>
+
+      <div class="sc-radio-row">
+        <label><input type="radio" name="fixture-mode" value="lattice" checked> Auto-generate lattice</label>
+        <label><input type="radio" name="fixture-mode" value="manual"> Manual positions</label>
+      </div>
+
+      <div id="fixture-lattice-fields" class="sc-form-grid">
+        <div class="sc-field">
+          <label for="spacing-x">Spacing X (m)</label>
+          <input type="number" id="spacing-x" value="3" step="0.1" min="0.1">
+        </div>
+        <div class="sc-field">
+          <label for="spacing-y">Spacing Y (m)</label>
+          <input type="number" id="spacing-y" value="3" step="0.1" min="0.1">
+        </div>
+        <div class="sc-field">
+          <label for="layout-pattern">Pattern</label>
+          <select id="layout-pattern">
+            <option value="grid">Grid</option>
+            <option value="staggered">Staggered</option>
+          </select>
+        </div>
+        <div class="sc-field">
+          <label for="rotation-deg">Rotation (deg)</label>
+          <input type="number" id="rotation-deg" value="0" step="1">
+        </div>
+        <div class="sc-field">
+          <label for="placement-margin">Wall margin — placement (m)</label>
+          <input type="number" id="placement-margin" value="0.5" step="0.1" min="0">
+        </div>
+      </div>
+
+      <div id="fixture-manual-fields" class="sc-form-grid" style="display:none">
+        <div class="sc-field sc-field-wide">
+          <label for="manual-fixtures">Fixture positions — JSON list of [x,y], e.g. <code>[[5,5]]</code></label>
+          <textarea id="manual-fixtures" rows="2">[[5,5]]</textarea>
+        </div>
+      </div>
+
+      <button class="sc-button" id="generate-fixtures-btn" disabled>Place Fixtures</button>
+      <div id="fixtures-status" class="sc-status"></div>
+
+      <h3 class="small-heading" style="margin-top:1.25rem">Photometric output override</h3>
+      <p class="sc-hint">
+        Leave blank to use the IES file's own declared output as-is. Enter a
+        value to rescale the candela distribution — this is the same thing
+        DIALux does when you edit a luminaire's Luminous Flux away from its
+        photometric file's declared total (e.g. matching a real product's
+        datasheet lumens instead of the raw file).
+      </p>
+      <div class="sc-form-grid">
+        <div class="sc-field">
+          <label for="declared-lumens">Declared total lumens (override)</label>
+          <input type="number" id="declared-lumens" placeholder="(from file)" step="1" min="0">
+        </div>
+        <div class="sc-field">
+          <label for="declared-watts">Declared input watts (informational)</label>
+          <input type="number" id="declared-watts" placeholder="(optional)" step="0.1" min="0">
+        </div>
+      </div>
+
+      <div id="fixture-edit-toolbar" style="display:none">
+        <p class="sc-hint">
+          Fixtures are now editable on the workspace canvas above:
+          drag one to reposition it, or switch mode below to click-add or
+          click-remove. <strong>Add Row/Column</strong> duplicates the
+          outermost row/column at the given spacing (skipping any point
+          that would land outside the room shape).
+        </p>
+        <div class="sc-toolbar">
+          <button class="sc-button sc-button-secondary sc-mode-active" id="fixture-mode-move-btn">Move</button>
+          <button class="sc-button sc-button-secondary" id="fixture-mode-add-btn">Add Fixture</button>
+          <button class="sc-button sc-button-secondary" id="fixture-mode-remove-btn">Remove Fixture</button>
+        </div>
+        <div class="sc-toolbar">
+          <div class="sc-field sc-field-inline">
+            <label for="edit-row-spacing">Row spacing (m)</label>
+            <input type="number" id="edit-row-spacing" value="3" step="0.1" min="0.1">
+          </div>
+          <button class="sc-button sc-button-secondary" id="add-row-above-btn">Add Row Above</button>
+          <button class="sc-button sc-button-secondary" id="add-row-below-btn">Add Row Below</button>
+        </div>
+        <div class="sc-toolbar">
+          <div class="sc-field sc-field-inline">
+            <label for="edit-col-spacing">Column spacing (m)</label>
+            <input type="number" id="edit-col-spacing" value="3" step="0.1" min="0.1">
+          </div>
+          <button class="sc-button sc-button-secondary" id="add-col-left-btn">Add Column Left</button>
+          <button class="sc-button sc-button-secondary" id="add-col-right-btn">Add Column Right</button>
+        </div>
+        <div id="fixture-edit-status" class="sc-status"></div>
+      </div>
+    </section>
+
+    <section class="sc-panel">
+      <h3 class="small-heading">Step 4</h3>
+      <h2>Calculate</h2>
+      <div class="sc-form-grid">
+        <div class="sc-field">
+          <label for="grid-resolution">Measurement grid resolution (m)</label>
+          <input type="number" id="grid-resolution" value="0.5" step="0.05" min="0.05">
+        </div>
+        <div class="sc-field">
+          <label for="measurement-margin">Wall margin — measurement (m)</label>
+          <input type="number" id="measurement-margin" value="0.5" step="0.1" min="0">
+        </div>
+      </div>
+
+      <h3 class="small-heading" style="margin-top:1.25rem">Room &amp; maintenance</h3>
+      <p class="sc-hint">
+        Reflectances default to the typical DIALux/CIE new-project values
+        (Ceiling 70% &middot; Walls 50% &middot; Floor 20%) — edit to match
+        your actual room finishes. The indirect (interreflected) component
+        this produces is a room-average approximation, not a per-point
+        radiosity solve like DIALux's — see the result panel's note.
+      </p>
+      <div class="sc-form-grid">
+        <div class="sc-field">
+          <label for="ceiling-reflectance">Ceiling reflectance (%)</label>
+          <input type="number" id="ceiling-reflectance" value="70" step="1" min="0" max="100">
+        </div>
+        <div class="sc-field">
+          <label for="wall-reflectance">Wall reflectance (%)</label>
+          <input type="number" id="wall-reflectance" value="50" step="1" min="0" max="100">
+        </div>
+        <div class="sc-field">
+          <label for="floor-reflectance">Floor reflectance (%)</label>
+          <input type="number" id="floor-reflectance" value="20" step="1" min="0" max="100">
+        </div>
+        <div class="sc-field">
+          <label for="ceiling-height">Ceiling height (m)</label>
+          <input type="number" id="ceiling-height" placeholder="(= mounting height)" step="0.1" min="0">
+        </div>
+        <div class="sc-field">
+          <label for="maintenance-factor">Maintenance factor</label>
+          <input type="number" id="maintenance-factor" value="0.8" step="0.01" min="0.01" max="1">
+        </div>
+        <div class="sc-field sc-field-inline">
+          <label class="sc-checkbox-label">
+            <input type="checkbox" id="include-interreflection-checkbox" checked>
+            Include interreflection (approx.)
+          </label>
+        </div>
+      </div>
+
+      <button class="sc-button" id="calculate-btn" disabled>Calculate</button>
+      <div id="calc-status" class="sc-status"></div>
+    </section>
+
+    <section class="sc-panel">
+      <h3 class="small-heading">Result</h3>
+      <h2>Heatmap &amp; Uniformity</h2>
+      <p class="sc-hint">Rendered on the workspace canvas above.</p>
+      <table class="sc-metrics-table" id="metrics-table" style="display:none">
+        <thead>
+          <tr><th>Fixtures</th><th>Grid pts</th><th>E_min (lux)</th><th>E_max (lux)</th><th>E_avg (lux)</th><th>U0 (Emin/Eavg)</th><th>U1 (Emin/Emax)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="metric-fixtures">-</td>
+            <td id="metric-gridpts">-</td>
+            <td id="metric-emin">-</td>
+            <td id="metric-emax">-</td>
+            <td id="metric-eavg">-</td>
+            <td id="metric-u0">-</td>
+            <td id="metric-u1">-</td>
+          </tr>
+        </tbody>
+      </table>
+      <div id="calc-environment-note" class="sc-status" style="display:none"></div>
+
+      <div class="sc-form-grid" id="colorscale-fields">
+        <div class="sc-field sc-field-inline">
+          <label class="sc-checkbox-label">
+            <input type="checkbox" id="colorscale-lock-checkbox"> Lock color scale
+          </label>
+        </div>
+        <div class="sc-field">
+          <label for="colorscale-min">Scale min (lux)</label>
+          <input type="number" id="colorscale-min" step="1" placeholder="auto">
+        </div>
+        <div class="sc-field">
+          <label for="colorscale-max">Scale max (lux)</label>
+          <input type="number" id="colorscale-max" step="1" placeholder="auto">
+        </div>
+        <div class="sc-field sc-field-inline">
+          <label class="sc-checkbox-label">
+            <input type="checkbox" id="show-values-checkbox"> Show lux values on grid
+          </label>
+        </div>
+      </div>
+      <p class="sc-hint">
+        By default every calculation stretches red-to-blue across
+        <em>its own</em> min/max lux — so two runs with a similar overall
+        range can look almost identical even after a fixture moved,
+        because the scale re-normalizes around whatever the new numbers
+        are. Check <strong>Lock color scale</strong> to fix the min/max
+        instead (pre-filled from your first calculation, editable any
+        time), so the same lux value always maps to the same color and a
+        small, local change stays visible run to run.
+        <strong>Show lux values on grid</strong> prints the exact reading
+        at every point directly on the heatmap; on a fine grid where the
+        numbers would overlap, hover any point instead to read its exact
+        value and coordinates in the tooltip.
+      </p>
+      <div id="values-density-status" class="sc-status"></div>
+    </section>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='js/geometry_utils.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/canvas_heatmap.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/shape_editor.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/fixture_editor.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

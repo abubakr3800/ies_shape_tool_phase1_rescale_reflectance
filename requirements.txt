@@ -1,0 +1,6 @@
+flask>=3.0
+
+# Phase 2: arbitrary/concave room-shape geometry (room_geometry.py,
+# fixture_layout.py, grid_generator.generate_measurement_grid) - see
+# IES_HEATMAP_SHAPE_TOOL_PLAN.md section 5/6.
+shapely>=2.0

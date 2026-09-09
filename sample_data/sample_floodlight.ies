@@ -1,0 +1,15 @@
+IESNA:LM-63-1995
+[TEST] SYNTHETIC-TEST-001
+[MANUFAC] ShortCircuitTest
+[LUMCAT] SC-TEST-FLOOD-100
+[LUMINAIRE] Synthetic rotationally-symmetric floodlight for tool validation
+[LAMP] LED
+[BALLASTCAT] N/A
+[MORE] Generated for the IES heatmap tool phase 1 test - not a real product
+TILT=NONE
+1 3000 1.0 10 2 1 2 0.3 0.3 0.1
+1.0 1.0 30.0
+0 10 20 30 40 50 60 70 80 90
+0 90
+5000 4900 4600 4100 3400 2600 1700 900 300 0
+5000 4900 4600 4100 3400 2600 1700 900 300 0

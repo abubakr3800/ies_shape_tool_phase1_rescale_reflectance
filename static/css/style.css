@@ -1,0 +1,393 @@
+/* style.css
+   ---------
+   SC brand tokens per http://shortcircuit.company/SCbrand:
+     Primary red #eb1b26, Dark red #a40e16, Black #000000,
+     Grey #cccccc, White #ffffff.
+   Headlines: Anton (all caps). Body/subheadings: Poppins.
+   Layout: 80% content width, 10% margin each side. Golden-ratio (1.618)
+   scale used for the subheading size relative to body.
+
+   NOTE: the heatmap color gradient (drawn on <canvas> in
+   canvas_heatmap.js) intentionally does NOT use these brand colors -
+   it's a data encoding (low->high lux), not page chrome. See
+   heatmap_render.py for that color scale.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@300;400;500&display=swap');
+
+:root {
+  --sc-red: #eb1b26;
+  --sc-red-dark: #a40e16;
+  --sc-black: #000000;
+  --sc-grey: #cccccc;
+  --sc-white: #ffffff;
+
+  --font-headline: 'Anton', sans-serif;
+  --font-body: 'Poppins', sans-serif;
+
+  --base-size: 16px;
+  --subhead-size: calc(var(--base-size) * 1.618); /* golden ratio scale */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--sc-black);
+  color: var(--sc-white);
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--base-size);
+}
+
+.sc-page {
+  width: 80%;
+  margin: 0 auto; /* 10% margin each side, per brand layout guidance */
+  padding: 2rem 0 4rem;
+}
+
+.sc-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 2px solid var(--sc-red);
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+}
+
+.sc-header img.logo {
+  /* Brand logo ratio: 1:0.445 (width:height) - never distort. */
+  height: 40px;
+  width: calc(40px / 0.445);
+}
+
+.sc-header h1 {
+  font-family: var(--font-headline);
+  text-transform: uppercase;
+  font-size: calc(var(--subhead-size) * 1.618); /* headline = 3x-ish base via two golden steps */
+  color: var(--sc-white);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.sc-subtitle {
+  font-family: var(--font-body);
+  font-weight: 300;
+  text-transform: uppercase;
+  font-size: calc(var(--base-size) * 1.1);
+  color: var(--sc-grey);
+  margin-top: 0.25rem;
+}
+
+.sc-panel {
+  background: #0d0d0d;
+  border: 1px solid #262626;
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.sc-panel h2 {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: var(--subhead-size);
+  color: var(--sc-white);
+  margin-top: 0;
+}
+
+.sc-panel h3.small-heading {
+  font-family: var(--font-body);
+  font-weight: 300;
+  text-transform: uppercase;
+  font-size: calc(var(--base-size) * 1.1);
+  color: var(--sc-grey);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+
+.sc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.sc-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--sc-grey);
+  margin-bottom: 0.25rem;
+}
+
+.sc-field input {
+  width: 100%;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: var(--sc-white);
+  border-radius: 4px;
+  font-family: var(--font-body);
+}
+
+.sc-field input:focus,
+.sc-field textarea:focus,
+.sc-field select:focus {
+  outline: none;
+  border-color: var(--sc-red);
+}
+
+.sc-field textarea,
+.sc-field select {
+  width: 100%;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: var(--sc-white);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.sc-field code {
+  color: var(--sc-grey);
+  font-size: 0.8rem;
+}
+
+/* Polygon/holes vertex-list fields span the full form-grid width instead
+   of sharing a column with the numeric fields next to them. */
+.sc-field-wide {
+  grid-column: 1 / -1;
+}
+
+.sc-radio-row {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  color: var(--sc-grey);
+}
+
+.sc-radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.sc-button {
+  background: var(--sc-red);
+  color: var(--sc-white);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sc-button:hover { background: var(--sc-red-dark); }
+.sc-button:disabled { background: #444; cursor: not-allowed; }
+
+.sc-status {
+  font-size: 0.85rem;
+  color: var(--sc-grey);
+  margin-top: 0.5rem;
+  min-height: 1.2em;
+}
+
+.sc-status.error { color: var(--sc-red); }
+.sc-status.ok { color: #7fd97f; }
+
+/* Paste-a-URL row on the IES import panel: text input + button as one
+   group, matching the .sc-toolbar convention used elsewhere. */
+.sc-url-row {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+}
+
+.sc-url-row input[type="url"] {
+  flex: 1;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: var(--sc-white);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+}
+
+.sc-url-row input[type="url"]:focus {
+  outline: none;
+  border-color: var(--sc-red);
+}
+
+/* Dropdown of previously saved IES files (survives a server restart -
+   see ies_store.py) so a file doesn't have to be re-uploaded each visit. */
+.sc-saved-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--sc-grey);
+}
+
+.sc-saved-row select {
+  flex: 1;
+  padding: 0.4rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: var(--sc-white);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+}
+
+.sc-saved-row select:focus {
+  outline: none;
+  border-color: var(--sc-red);
+}
+
+#heatmap-canvas {
+  background: #050505;
+  border: 1px solid #262626;
+  border-radius: 4px;
+  display: block;
+  max-width: 100%;
+  cursor: crosshair;
+}
+
+#workspace-canvas-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.sc-edge-length-input {
+  position: absolute;
+  width: 5.5rem;
+  padding: 0.3rem 0.4rem;
+  background: #1a1a1a;
+  border: 1.5px solid var(--sc-red);
+  color: var(--sc-white);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+}
+.sc-edge-length-input:focus { outline: none; }
+
+/* Hover readout for the exact lux value + coordinates under the cursor -
+   always available regardless of how dense the grid is on-screen, since
+   the printed-number overlay (drawHeatmapValueLabels) has to bail out on
+   fine grids where the text itself would overlap. */
+.sc-lux-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: #0d0d0d;
+  border: 1px solid var(--sc-red);
+  color: var(--sc-white);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+.sc-lux-tooltip strong {
+  color: var(--sc-red);
+}
+
+/* Toolbar rows used by the shape-draw and fixture-edit panels — a wrapping
+   flex row so a run of small buttons/fields reads as one control group
+   rather than stacking one-per-line like the wider sc-form-grid fields. */
+.sc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0;
+}
+
+.sc-button-secondary {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.9rem;
+}
+
+.sc-button-secondary:hover:not(:disabled) {
+  background: #262626;
+  border-color: var(--sc-red);
+}
+
+.sc-button-secondary.sc-mode-active {
+  background: var(--sc-red);
+  border-color: var(--sc-red);
+}
+
+.sc-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--sc-grey);
+  cursor: pointer;
+}
+
+.sc-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: auto;
+}
+
+.sc-field-inline label {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  color: var(--sc-grey);
+}
+
+.sc-field-inline input {
+  width: 5.5rem;
+}
+
+.sc-hint {
+  font-size: 0.8rem;
+  color: var(--sc-grey);
+  line-height: 1.5;
+  margin: 0.5rem 0;
+}
+
+.sc-hint strong {
+  color: var(--sc-white);
+}
+
+.sc-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.sc-metrics-table th, .sc-metrics-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #262626;
+  font-size: 0.9rem;
+}
+
+.sc-metrics-table th {
+  color: var(--sc-grey);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
