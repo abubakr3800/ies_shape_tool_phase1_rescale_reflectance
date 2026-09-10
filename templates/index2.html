@@ -71,6 +71,24 @@
           <label><input type="radio" name="polygon-input-method" value="paste"> Paste JSON vertices</label>
         </div>
 
+        <div id="shape-transform-toolbar" class="sc-toolbar">
+          <div class="sc-field sc-field-inline">
+            <label for="shape-rotate-deg">Rotate (&deg;)</label>
+            <input type="number" id="shape-rotate-deg" step="1" value="90" title="Positive = counter-clockwise">
+          </div>
+          <button class="sc-button sc-button-secondary" id="shape-rotate-btn">Rotate</button>
+          <button class="sc-button sc-button-secondary" id="shape-rotate-ccw90-btn" title="Rotate 90&deg; counter-clockwise">&#8634; 90&deg;</button>
+          <button class="sc-button sc-button-secondary" id="shape-rotate-cw90-btn" title="Rotate 90&deg; clockwise">&#8635; 90&deg;</button>
+          <button class="sc-button sc-button-secondary" id="shape-flip-h-btn" title="Mirror left/right">Flip Horizontal</button>
+          <button class="sc-button sc-button-secondary" id="shape-flip-v-btn" title="Mirror top/bottom">Flip Vertical</button>
+        </div>
+        <p class="sc-hint" style="margin-top:0;">
+          Rotate/flip work whichever way you entered the shape — drawn on canvas or
+          pasted as JSON below — spinning/mirroring it around its own bounding-box
+          center. Fixtures don't move with it either way.
+        </p>
+        <div id="shape-transform-status" class="sc-status"></div>
+
         <div id="shape-draw-fields">
           <p class="sc-hint">
             Click on the workspace canvas below to place points, then click the first
@@ -90,16 +108,6 @@
             <button class="sc-button sc-button-secondary" id="draw-clear-btn">Clear Shape</button>
             <button class="sc-button sc-button-secondary" id="draw-history-undo-btn" title="Undo (Ctrl+Z)" disabled>&#8630; Undo</button>
             <button class="sc-button sc-button-secondary" id="draw-history-redo-btn" title="Redo (Ctrl+Y)" disabled>&#8631; Redo</button>
-          </div>
-          <div class="sc-toolbar">
-            <div class="sc-field sc-field-inline">
-              <label for="draw-rotate-deg">Rotate shape (&deg;)</label>
-              <input type="number" id="draw-rotate-deg" step="1" value="90" title="Positive = counter-clockwise">
-            </div>
-            <button class="sc-button sc-button-secondary" id="draw-rotate-btn">Rotate</button>
-            <button class="sc-button sc-button-secondary" id="draw-rotate-ccw90-btn" title="Rotate 90&deg; counter-clockwise">&#8634; 90&deg;</button>
-            <button class="sc-button sc-button-secondary" id="draw-rotate-cw90-btn" title="Rotate 90&deg; clockwise">&#8635; 90&deg;</button>
-            <span class="sc-hint" style="margin:0;">Spins the whole shape around its own center — fixtures don't move with it.</span>
           </div>
           <p class="sc-hint">
             Shortcuts: <strong>Ctrl+Z</strong> / <strong>Ctrl+Y</strong> undo/redo any

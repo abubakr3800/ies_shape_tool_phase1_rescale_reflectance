@@ -352,6 +352,64 @@ const ShapeEditor = (() => {
     return Math.hypot(next.x - p.x, next.y - p.y);
   }
 
+  // -- whole-shape rotation --------------------------------------------------
+
+  /**
+   * Rotates the whole committed shape — exterior ring + every hole,
+   * including curve control points — by `angleDeg` degrees (positive =
+   * counter-clockwise, standard math convention) around `pivot`. Defaults
+   * to the shape's own bounding-box center, so "rotate" reads as spinning
+   * the room in place rather than swinging it off across the canvas.
+   *
+   * Deliberately shape-only: fixtures live in a separate editor/state
+   * entirely and do NOT move with it. Rotate the shape before placing
+   * fixtures, or expect to reposition them afterward if some are already
+   * placed — this function has no way to know where they are.
+   *
+   * Refuses (returns {ok:false, reason}) while a ring is still being
+   * drawn (an unclosed outline has no stable pivot) or if there's no
+   * closed exterior yet to rotate. Goes through _notify() like every
+   * other committed edit, so it's a normal step in undo/redo history.
+   */
+  function rotate(angleDeg, pivot) {
+    if (state.activeRing) {
+      return { ok: false, reason: 'Finish or cancel the shape you are drawing before rotating it.' };
+    }
+    if (!state.exterior.closed) {
+      return { ok: false, reason: 'Nothing to rotate yet — draw and close a shape first.' };
+    }
+    if (typeof angleDeg !== 'number' || !isFinite(angleDeg) || angleDeg === 0) {
+      return { ok: false, reason: 'Enter a non-zero rotation angle.' };
+    }
+
+    const box = boundingBox();
+    const center = pivot || (box
+      ? { x: (box.min_x + box.max_x) / 2, y: (box.min_y + box.max_y) / 2 }
+      : { x: 0, y: 0 });
+
+    const rad = (angleDeg * Math.PI) / 180;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    const rotatePoint = (p) => {
+      const dx = p.x - center.x, dy = p.y - center.y;
+      return { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos };
+    };
+    const rotateRing = (ring) => {
+      ring.points.forEach((p) => {
+        const r = rotatePoint(p);
+        p.x = r.x; p.y = r.y;
+        if (p.curveTo) {
+          const rc = rotatePoint({ x: p.curveTo.cx, y: p.curveTo.cy });
+          p.curveTo.cx = rc.x; p.curveTo.cy = rc.y;
+        }
+      });
+    };
+
+    rotateRing(state.exterior);
+    state.holes.forEach(rotateRing);
+    _notify();
+    return { ok: true };
+  }
+
   // -- bounds (for fitting the canvas while there's no validated shape yet) -
 
   function boundingBox() {
@@ -784,7 +842,7 @@ const ShapeEditor = (() => {
   return {
     reset, clearAll, clearHoles, setOnChange, setSnap, setAngleSnap,
     startExterior, startHole, undoLastPoint, finishCurrentRing, cancelActiveRing,
-    isActive, isDrawing, hasClosedExterior, boundingBox, toShapeSpec,
+    isActive, isDrawing, hasClosedExterior, boundingBox, toShapeSpec, rotate,
     setNextSegmentLength, setEdgeLength, edgeLength, hitTestEdgeLabel,
     pointerDown, pointerMove, pointerUp, doubleClick, rightClickDelete,
     hasSelectedVertex, deleteSelectedVertex, nudgeSelectedVertex,

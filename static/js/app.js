@@ -865,6 +865,34 @@ document.getElementById('draw-clear-btn').addEventListener('click', () => {
   render();
 });
 
+// -- whole-shape rotation (exterior + holes; fixtures are untouched) --------
+
+function _applyRotate(angleDeg) {
+  const result = ShapeEditor.rotate(angleDeg);
+  if (!result.ok) {
+    drawStatus.textContent = result.reason;
+    drawStatus.className = 'sc-status error';
+    render();
+    return;
+  }
+  drawStatus.textContent = `Rotated ${angleDeg}\u00B0 around the shape's bounding-box center.`;
+  drawStatus.className = 'sc-status ok';
+  render();
+}
+
+document.getElementById('draw-rotate-btn').addEventListener('click', () => {
+  const deg = parseFloat(document.getElementById('draw-rotate-deg').value);
+  if (!isFinite(deg)) {
+    drawStatus.textContent = 'Enter a rotation angle in degrees.';
+    drawStatus.className = 'sc-status error';
+    return;
+  }
+  _applyRotate(deg);
+});
+
+document.getElementById('draw-rotate-ccw90-btn').addEventListener('click', () => _applyRotate(90));
+document.getElementById('draw-rotate-cw90-btn').addEventListener('click', () => _applyRotate(-90));
+
 const snapCheckbox = document.getElementById('draw-snap-checkbox');
 const snapSizeInput = document.getElementById('draw-snap-size');
 function _syncSnap() {

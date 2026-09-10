@@ -501,21 +501,50 @@ def calculate():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    indirect_illuminance = 0.0
-    if include_interreflection:
-        indirect_illuminance = interreflection.average_indirect_illuminance(
+    # Direct component has to be computed first now: v2 of the
+    # interreflection model grounds itself in the grid's own measured
+    # direct average rather than re-deriving an idealized flux density
+    # (see interreflection.py's module docstring for why that mattered).
+    started = time.perf_counter()
+    direct_values = [
+        photometry.total_illuminance(fixtures, point.x, point.y, work_plane_z=work_plane_height)
+        for point in points
+    ]
+
+    # spatial_weight: 0 = flat wall-indirect (v2 behavior), 1 = fully
+    # redistributed (validated to overshoot U0 on the reference room —
+    # see interreflection.py's module docstring). Defaults to the
+    # empirically-matched value; expose it as a request field if you
+    # want to tune it per project rather than editing DEFAULT here.
+    spatial_weight = float(body.get("interreflection_spatial_weight", 0.45))
+
+    ceiling_component = 0.0
+    wall_per_point = []
+    if include_interreflection and direct_values:
+        direct_avg_raw = sum(direct_values) / len(direct_values)
+        components = interreflection.solve_indirect_components(
             fixtures, shape, ceiling_height=ceiling_height,
             ceiling_reflectance=ceiling_reflectance,
             wall_reflectance=wall_reflectance,
             floor_reflectance=floor_reflectance,
+            direct_avg_illuminance=direct_avg_raw,
         )
+        ceiling_component = components.ceiling_component
+        wall_per_point = interreflection.spatial_wall_indirect(
+            points, shape, ceiling_height=ceiling_height,
+            components=components, spatial_weight=spatial_weight,
+        )
+        if not wall_per_point:
+            # Degenerate case (e.g. zero wall reflectance) - flat fallback.
+            wall_per_point = [components.wall_component_avg] * len(points)
 
-    started = time.perf_counter()
-    for point in points:
-        direct = photometry.total_illuminance(
-            fixtures, point.x, point.y, work_plane_z=work_plane_height
-        )
-        point.value = (direct + indirect_illuminance) * maintenance_factor
+    indirect_illuminance = ceiling_component + (
+        sum(wall_per_point) / len(wall_per_point) if wall_per_point else 0.0
+    )  # kept for the response payload's "indirect_illuminance_lux" field (room average)
+
+    for i, (point, direct) in enumerate(zip(points, direct_values)):
+        wall_term = wall_per_point[i] if wall_per_point else 0.0
+        point.value = (direct + ceiling_component + wall_term) * maintenance_factor
     elapsed_s = time.perf_counter() - started
 
     result = aggregator.summarize([p.value for p in points])
